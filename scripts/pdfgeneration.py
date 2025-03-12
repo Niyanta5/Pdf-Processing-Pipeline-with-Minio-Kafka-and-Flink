@@ -5,6 +5,14 @@ from datetime import datetime
 from weasyprint import HTML
 from dotenv import load_dotenv
 from transformers import pipeline
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Load the environment variables from the .env file (if needed for other purposes)
 load_dotenv()
@@ -30,8 +38,13 @@ def generate_pdf(story, filename):
     """
     Converts a story into a PDF and saves it.
     """
-    html_content = f"<html><body><h1>Generated Story</h1><p>{story}</p></body></html>"
-    HTML(string=html_content).write_pdf(filename)
+    try:
+        html_content = f"<html><body><h1>Generated Story</h1><p>{story}</p></body></html>"
+        HTML(string=html_content).write_pdf(filename)
+    except Exception as e:
+        print(f"Error generating PDF: {e}")
+        return False
+    return True
 
 # Function to generate a random prompt
 def generate_random_prompt():
@@ -86,8 +99,9 @@ if __name__ == "__main__":
         pdf_filename = f"/app/data/{unique_filename}"
         
         # Generate the PDF with the story
-        generate_pdf(story, pdf_filename)
-        
-        print(f"Random story PDF '{pdf_filename}' generated successfully!")
+        if generate_pdf(story, pdf_filename):
+            print(f"Random story PDF '{pdf_filename}' generated successfully!")
+        else:
+            print("Failed to generate PDF file.")
     else:
         print("Failed to generate the story.")

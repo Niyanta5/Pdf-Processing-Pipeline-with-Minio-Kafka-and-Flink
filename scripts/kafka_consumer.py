@@ -1,8 +1,12 @@
 import json
 import logging
 import os
+import time
 from kafka import KafkaConsumer
+from kafka.errors import KafkaError
 from dotenv import load_dotenv
+import socket
+from contextlib import contextmanager
 
 # Load environment variables
 load_dotenv()
@@ -56,44 +60,60 @@ def process_minio_metadata(metadata):
         logger.error(f"Error processing metadata: {str(e)}")
         return False
 
+def create_consumer(bootstrap_servers, topic, group_id, max_retries=5, retry_delay=10):
+    """Create Kafka consumer with improved retry logic"""
+    for attempt in range(max_retries):
+        try:
+            consumer = KafkaConsumer(
+                topic,
+                bootstrap_servers=bootstrap_servers,
+                group_id=group_id,
+                auto_offset_reset='earliest',
+                enable_auto_commit=True,
+                value_deserializer=lambda x: json.loads(x.decode('utf-8')),
+                security_protocol="PLAINTEXT",
+                api_version=(0, 10, 2),
+                session_timeout_ms=30000,
+                heartbeat_interval_ms=10000,
+                max_poll_interval_ms=300000,
+                request_timeout_ms=305000
+            )
+            # Test the connection
+            consumer.topics()
+            return consumer
+        except Exception as e:
+            if attempt < max_retries - 1:
+                logger.error(f"Failed to connect to Kafka (attempt {attempt + 1}/{max_retries}): {e}")
+                time.sleep(retry_delay)
+            else:
+                raise Exception(f"Failed to connect to Kafka after {max_retries} attempts: {e}")
+
 def main():
-    # Kafka configuration
-    bootstrap_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092')
-    topic = os.getenv('KAFKA_TOPIC', 'minio-events')
-    group_id = os.getenv('KAFKA_GROUP_ID', 'minio-metadata-consumer')
+    while True:
+        try:
+            consumer = create_consumer(
+                KAFKA_BOOTSTRAP_SERVERS,
+                KAFKA_TOPIC,
+                KAFKA_GROUP_ID
+            )
+            logger.info("Connected to Kafka successfully")
 
-    print(f"Starting Kafka consumer...")
-    print(f"Bootstrap servers: {bootstrap_servers}")
-    print(f"Topic: {topic}")
-    print(f"Group ID: {group_id}")
+            for message in consumer:
+                try:
+                    process_minio_metadata(message.value)
+                except Exception as e:
+                    logger.error(f"Error processing message: {e}")
+                    continue
 
-    # Create Kafka consumer
-    consumer = KafkaConsumer(
-        topic,
-        bootstrap_servers=bootstrap_servers,
-        group_id=group_id,
-        auto_offset_reset='earliest',
-        enable_auto_commit=True,
-        value_deserializer=lambda x: json.loads(x.decode('utf-8'))
-    )
-
-    print("Consumer created successfully. Waiting for messages...")
-
-    # Consume messages
-    try:
-        for message in consumer:
-            print("\n--- New message received ---")
-            print(f"Topic: {message.topic}")
-            print(f"Partition: {message.partition}")
-            print(f"Offset: {message.offset}")
-            print(f"Key: {message.key}")
-            print(f"Value: {json.dumps(message.value, indent=2)}")
-            print("---------------------------")
-    except KeyboardInterrupt:
-        print("\nShutting down consumer...")
-    finally:
-        consumer.close()
-        print("Consumer closed.")
+        except Exception as e:
+            logger.error(f"Consumer error: {e}")
+            logger.info("Attempting to reconnect in 10 seconds...")
+            time.sleep(10)
+        finally:
+            try:
+                consumer.close()
+            except Exception:
+                pass
 
 if __name__ == "__main__":
     main()

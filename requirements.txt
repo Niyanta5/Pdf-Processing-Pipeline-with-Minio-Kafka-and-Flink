@@ -1,8 +1,12 @@
-transformers
-torch  # Required for the model to run
-weasyprint
-python-dotenv
-watchdog
-minio
-kafka-python
-zookeeper
+# Core dependencies
+transformers==4.49.0
+torch==2.6.0
+python-dotenv==1.0.1
+weasyprint==64.1
+minio==7.2.15
+kafka-python==2.0.6
+watchdog==6.0.0
+
+# Additional dependencies
+requests==2.31.0
+typing-extensions>=4.10.0

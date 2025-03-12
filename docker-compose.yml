@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   zookeeper:
     image: wurstmeister/zookeeper
@@ -18,18 +20,25 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_LISTENERS: PLAINTEXT://:9092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_CREATE_TOPICS: "minio-events:1:1"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_DELETE_TOPIC_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: "24"
+      KAFKA_HEAP_OPTS: "-Xmx512M -Xms512M"
+      KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS: 60000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "9092"]
-      interval: 10s
-      retries: 5
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
       start_period: 30s
-      timeout: 30s
 
   minio-server:
     image: minio/minio
@@ -66,6 +75,7 @@ services:
     networks:
       - app-network
     depends_on:
+      - kafka
       - minio-server
 
   minio-watcher:
@@ -112,6 +122,12 @@ services:
       KAFKA_TOPIC: minio-events
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep miniotokafka.py | grep -v grep || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   kafdrop:
     image: obsidiandynamics/kafdrop
@@ -172,6 +188,12 @@ services:
       KAFKA_GROUP_ID: minio-metadata-consumer
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep kafka_consumer.py | grep -v grep || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 networks:
   app-network:
