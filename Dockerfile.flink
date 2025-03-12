@@ -1,0 +1,19 @@
+FROM apache/flink:1.18
+
+# Install Python and pip
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip wget && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Python Flink dependencies directly
+RUN pip3 install apache-flink==1.18.0 \
+                 apache-flink-libraries==1.18.0 \
+                 kafka-python==2.0.2
+
+# Copy Flink job
+COPY scripts/pdf_analytics_job.py /opt/flink/job/
+
+# Add SQL Kafka connector - using the correct Maven URL
+RUN wget -P /opt/flink/lib/ https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka_2.12/1.18.0/flink-sql-connector-kafka_2.12-1.18.0.jar
+
+CMD ["flink", "run", "-py", "/opt/flink/job/pdf_analytics_job.py"]
