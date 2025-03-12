@@ -1,0 +1,8 @@
+transformers
+torch  # Required for the model to run
+weasyprint
+python-dotenv
+watchdog
+minio
+kafka-python
+zookeeper

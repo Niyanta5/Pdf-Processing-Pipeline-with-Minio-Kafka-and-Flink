@@ -1,0 +1,10 @@
+# Ignore Python bytecode files
+__pycache__
+*.pyc
+*.pyo
+
+# Ignore Git files
+.git
+
+# Ignore .env file only if you want to keep it in the build context
+!.env  # Uncomment this line to allow the .env file to be included in the build context
