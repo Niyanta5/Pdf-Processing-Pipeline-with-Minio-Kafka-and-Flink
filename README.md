@@ -25,7 +25,7 @@ The pipeline consists of:
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone git@github.com:Niyanta5/Pdf-Processing-Pipeline-with-Minio-Kafka-and-Flink.git
 cd pdf-pipeline
 ```
 
